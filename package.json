@@ -1,0 +1,14 @@
+{
+  "name": "github-actions",
+  "version": "1.0.0",
+  "description": "GitHub Action to check for freeze periods and fail open pull requests",
+  "main": "check-freeze.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@octokit/core": "^3.5.1"
+  }
+}

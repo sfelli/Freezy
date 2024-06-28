@@ -19,30 +19,13 @@ jobs:
       with:
         node-version: '14'
 
-    - name: Check for freeze period
-      id: check-freeze
-      run: |
-        echo "Checking for freeze period..."
-        node .github/scripts/check-freeze.js
-      env:
-        FREEZE_PERIODS: ${{ github.event.inputs.freeze_periods }}
+    - name: Install dependencies
+      run: npm install
 
-    - name: Get open pull requests
-      id: pr
-      uses: octokit/request-action@v2
-      with:
-        route: GET /repos/${{ github.repository }}/pulls
-
-    - name: Fail PRs if within freeze period
-      if: steps.check-freeze.outputs.freeze == 'true'
+    - name: Check for freeze period and fail PRs if within freeze period
       run: |
-        echo "Failing all open pull requests..."
-        prs=$(jq -r '.[] | .number' <<<"${{ steps.pr.outputs.data }}")
-        for pr in $prs; do
-          gh api repos/${{ github.repository }}/statuses/$pr \
-            -f state=error \
-            -f description="Code freeze in effect" \
-            -f context="freeze-check"
-        done
+        echo "Checking for freeze period and failing PRs if necessary..."
+        node .github/scripts/check-freeze.js '${{ github.event.inputs.freeze_periods }}'
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.TOKEN }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
