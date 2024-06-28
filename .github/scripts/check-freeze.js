@@ -44,7 +44,7 @@ async function failOpenPullRequests(prs) {
       repo,
       sha,
       state: 'error',
-      description: 'Code freeze in effect',
+      description: 'Code freeze in effect test',
       context: 'freeze-check'
     });
     console.log(`Failed PR #${prNumber}`);
