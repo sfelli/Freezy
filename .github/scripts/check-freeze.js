@@ -1,4 +1,5 @@
 const { exit } = require('process');
+const { writeFileSync } = require('fs');
 
 function parseFreezePeriods(input) {
   const periods = input.split(',').map(period => {
@@ -21,8 +22,11 @@ function isWithinFreezePeriod(date) {
 }
 
 if (isWithinFreezePeriod(currentDate)) {
+  console.log(`::set-output name=freeze::true`);
   console.log(`Code freeze in effect! Current date ${currentDate} is within a freeze period.`);
-  exit(1); // Exit with a non-zero code to fail the action
+  writeFileSync('freeze', 'Code freeze in effect.');
+  exit(0);
 } else {
+  console.log(`::set-output name=freeze::false`);
   console.log(`No code freeze. Current date ${currentDate} is outside of freeze periods.`);
 }

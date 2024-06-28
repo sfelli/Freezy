@@ -1,8 +1,6 @@
-name: Freeze Code Based on Dates
+name: Manual Freeze Check
 
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
   workflow_dispatch:
     inputs:
       freeze_periods:
@@ -22,8 +20,29 @@ jobs:
         node-version: '14'
 
     - name: Check for freeze period
+      id: check-freeze
       run: |
         echo "Checking for freeze period..."
         node .github/scripts/check-freeze.js
       env:
         FREEZE_PERIODS: ${{ github.event.inputs.freeze_periods }}
+
+    - name: Get open pull requests
+      id: pr
+      uses: octokit/request-action@v2
+      with:
+        route: GET /repos/${{ github.repository }}/pulls
+
+    - name: Fail PRs if within freeze period
+      if: steps.check-freeze.outputs.freeze == 'true'
+      run: |
+        echo "Failing all open pull requests..."
+        prs=$(jq -r '.[] | .number' <<<"${{ steps.pr.outputs.data }}")
+        for pr in $prs; do
+          gh api repos/${{ github.repository }}/statuses/$pr \
+            -f state=error \
+            -f description="Code freeze in effect" \
+            -f context="freeze-check"
+        done
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
