@@ -1,5 +1,5 @@
 {
-  "name": "github-actions",
+  "name": "github-actions-freezy",
   "version": "1.0.0",
   "description": "GitHub Action to check for freeze periods and fail open pull requests",
   "main": "check-freeze.js",
@@ -9,6 +9,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@octokit/core": "^3.5.1"
+    "@octokit/core": "^3.5.1",
+    "moment-timezone": "^0.5.34"
   }
 }

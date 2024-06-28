@@ -1,6 +1,10 @@
 const { exit } = require('process');
-const { Octokit } = require("@octokit/core");
+const { Octokit } = require('@octokit/core');
 const { existsSync } = require('fs');
+const moment = require('moment-timezone');
+
+// Get the desired time zone from the environment variable or default to 'Europe/Paris'
+const timeZone = process.argv[4] || 'Europe/Paris';
 
 const freezePeriodsInput = process.argv[2];
 const targetBranchesInput = process.argv[3];
@@ -22,6 +26,11 @@ function parseFreezePeriods(input) {
     return { start, end };
   });
   return periods;
+}
+
+function validateDateTime(dateTime) {
+  const dateTimeRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
+  return dateTimeRegex.test(dateTime);
 }
 
 function isWithinFreezePeriod(dateTime, freezePeriods) {
@@ -108,7 +117,17 @@ async function main() {
   }
 
   const freezePeriods = parseFreezePeriods(freezePeriodsInput);
-  const currentDateTime = new Date().toISOString();
+
+  // Validate date-time format for each period
+  for (const period of freezePeriods) {
+    if (!validateDateTime(period.start) || !validateDateTime(period.end)) {
+      console.error(`Invalid date-time format: ${period.start} or ${period.end}. Please use the format YYYY-MM-DDTHH:MM.`);
+      exit(1);
+    }
+  }
+
+  const currentDateTime = moment().tz(timeZone).format('YYYY-MM-DDTHH:mm');
+  console.log(`Current date and time in ${timeZone}: ${currentDateTime}`);
 
   let nextRunTime = null;
   for (const period of freezePeriods) {
