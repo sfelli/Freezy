@@ -1,4 +1,5 @@
-# Freeze Code Based on Dates GitHub Action
+<h1 align="center">Freeze Code Based on Dates GitHub Action <img style="width:28px;height:28px;" src=""></img></h1> 
+
 
 This GitHub Action checks if the current date falls within specified freeze periods and blocks merges if it does. This is useful for enforcing code freeze policies during critical times, such as holiday seasons or major release periods.
 
