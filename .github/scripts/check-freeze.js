@@ -5,6 +5,17 @@ const { existsSync } = require('fs');
 const freezePeriodsInput = process.argv[2];
 const targetBranchesInput = process.argv[3];
 
+async function fetchBranches() {
+  const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+  const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
+  const { data: branches } = await octokit.request('GET /repos/{owner}/{repo}/branches', {
+    owner,
+    repo
+  });
+
+  return branches.map(branch => branch.name);
+}
+
 function parseFreezePeriods(input) {
   const periods = input.split(',').map(period => {
     const [start, end] = period.split(':');
@@ -13,10 +24,7 @@ function parseFreezePeriods(input) {
   return periods;
 }
 
-const freezePeriods = parseFreezePeriods(freezePeriodsInput);
-const currentDateTime = new Date().toISOString();
-
-function isWithinFreezePeriod(dateTime) {
+function isWithinFreezePeriod(dateTime, freezePeriods) {
   for (const period of freezePeriods) {
     if (dateTime >= period.start && dateTime <= period.end) {
       return true;
@@ -61,25 +69,25 @@ async function failOpenPullRequests(prs) {
 }
 
 async function scheduleNextRun(nextRunTime) {
-  const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
   const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/');
   const workflowId = 'main.yml'; // Adjust this to the filename of your main workflow
-  
+
   if (!existsSync(`.github/workflows/${workflowId}`)) {
     console.error(`Workflow file ${workflowId} does not exist.`);
     exit(1);
   }
 
   console.log(`Scheduling next run at: ${nextRunTime}`);
-  
-  // Calculate the delay until the next run
+
+  const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
   const delay = new Date(nextRunTime).getTime() - new Date().getTime();
+
   setTimeout(async () => {
     try {
       await octokit.request('POST /repos/{owner}/{repo}/actions/workflows/{workflow_id}/dispatches', {
         owner,
         repo,
-        workflow_id: workflowId,
+        workflow_id,
         ref: 'main' // Adjust this to the branch you want to use
       });
       console.log('Main workflow triggered successfully for the next check.');
@@ -90,49 +98,64 @@ async function scheduleNextRun(nextRunTime) {
   }, delay);
 }
 
-let nextRunTime = null;
-for (const period of freezePeriods) {
-  if (new Date(period.end).getTime() > new Date().getTime()) {
-    nextRunTime = period.end;
-    break;
+async function main() {
+  if (!targetBranchesInput) {
+    const branches = await fetchBranches();
+    const branchesList = branches.join(',');
+    console.log(`Fetched branches: ${branchesList}`);
+    console.log('Please use the fetched branches in the next step for target_branches input.');
+    return;
   }
-}
 
-if (isWithinFreezePeriod(currentDateTime)) {
-  console.log(`Code freeze in effect! Current date and time ${currentDateTime} is within a freeze period.`);
+  const freezePeriods = parseFreezePeriods(freezePeriodsInput);
+  const currentDateTime = new Date().toISOString();
 
-  const targetBranches = targetBranchesInput.split(',');
-  const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
-  getOpenPullRequests(octokit, targetBranches).then(prs => {
-    failOpenPullRequests(prs).then(() => {
-      if (nextRunTime) {
-        scheduleNextRun(nextRunTime).then(() => {
-          exit(1); // Exit with a non-zero code to fail the action
-        }).catch(error => {
-          console.error(`Failed to schedule next run: ${error}`);
+  let nextRunTime = null;
+  for (const period of freezePeriods) {
+    if (new Date(period.end).getTime() > new Date().getTime()) {
+      nextRunTime = period.end;
+      break;
+    }
+  }
+
+  if (isWithinFreezePeriod(currentDateTime, freezePeriods)) {
+    console.log(`Code freeze in effect! Current date and time ${currentDateTime} is within a freeze period.`);
+
+    const targetBranches = targetBranchesInput.split(',');
+    const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
+    getOpenPullRequests(octokit, targetBranches).then(prs => {
+      failOpenPullRequests(prs).then(() => {
+        if (nextRunTime) {
+          scheduleNextRun(nextRunTime).then(() => {
+            exit(1); // Exit with a non-zero code to fail the action
+          }).catch(error => {
+            console.error(`Failed to schedule next run: ${error}`);
+            exit(1);
+          });
+        } else {
           exit(1);
-        });
-      } else {
+        }
+      }).catch(error => {
+        console.error(`Failed to update PR statuses: ${error}`);
         exit(1);
-      }
+      });
     }).catch(error => {
-      console.error(`Failed to update PR statuses: ${error}`);
-      exit(1);
-    });
-  }).catch(error => {
-    console.error(`Failed to fetch open PRs: ${error}`);
-    exit(1);
-  });
-} else {
-  console.log(`No code freeze. Current date and time ${currentDateTime} is outside of freeze periods.`);
-  if (nextRunTime) {
-    scheduleNextRun(nextRunTime).then(() => {
-      exit(0);
-    }).catch(error => {
-      console.error(`Failed to schedule next run: ${error}`);
+      console.error(`Failed to fetch open PRs: ${error}`);
       exit(1);
     });
   } else {
-    exit(0);
+    console.log(`No code freeze. Current date and time ${currentDateTime} is outside of freeze periods.`);
+    if (nextRunTime) {
+      scheduleNextRun(nextRunTime).then(() => {
+        exit(0);
+      }).catch(error => {
+        console.error(`Failed to schedule next run: ${error}`);
+        exit(1);
+      });
+    } else {
+      exit(0);
+    }
   }
 }
+
+main();

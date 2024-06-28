@@ -9,6 +9,7 @@ on:
       target_branches:
         description: 'Comma-separated list of target branches to check for freezes (e.g., main,dev)'
         required: true
+        default: 'main,staging'
 
 permissions:
   pull-requests: write
