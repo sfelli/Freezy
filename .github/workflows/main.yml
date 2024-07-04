@@ -53,7 +53,7 @@ jobs:
           target_branches="main,dev"
           time_zone="Europe/Paris"
         fi
-        node .github/scripts/check-freeze.js "$action_type" "$target_branches" "$time_zone"
+        node index.js "$action_type" "$target_branches" "$time_zone"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_REPOSITORY: ${{ github.repository }}
