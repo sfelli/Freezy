@@ -3,11 +3,11 @@ const { Octokit } = require('@octokit/core');
 const { existsSync } = require('fs');
 const moment = require('moment-timezone');
 
-// Get the desired time zone from the environment variable or default to 'Europe/Paris'
-const timeZone = process.argv[4] || 'Europe/Paris';
-
-const freezePeriodsInput = process.argv[2];
-const targetBranchesInput = process.argv[3];
+// Get inputs from command line arguments
+const startDate = process.argv[2];
+const endDate = process.argv[3];
+const targetBranchesInput = process.argv[4];
+const timeZone = process.argv[5] || 'Europe/Paris';
 
 async function fetchBranches() {
   const octokit = new Octokit({ auth: process.env.GITHUB_TOKEN });
@@ -20,26 +20,13 @@ async function fetchBranches() {
   return branches.map(branch => branch.name);
 }
 
-function parseFreezePeriods(input) {
-  const periods = input.split(',').map(period => {
-    const [start, end] = period.split(':');
-    return { start, end };
-  });
-  return periods;
-}
-
 function validateDateTime(dateTime) {
   const dateTimeRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
   return dateTimeRegex.test(dateTime);
 }
 
-function isWithinFreezePeriod(dateTime, freezePeriods) {
-  for (const period of freezePeriods) {
-    if (dateTime >= period.start && dateTime <= period.end) {
-      return true;
-    }
-  }
-  return false;
+function isWithinFreezePeriod(dateTime, start, end) {
+  return dateTime >= start && dateTime <= end;
 }
 
 async function getOpenPullRequests(octokit, targetBranches) {
@@ -116,28 +103,22 @@ async function main() {
     return;
   }
 
-  const freezePeriods = parseFreezePeriods(freezePeriodsInput);
-
-  // Validate date-time format for each period
-  for (const period of freezePeriods) {
-    if (!validateDateTime(period.start) || !validateDateTime(period.end)) {
-      console.error(`Invalid date-time format: ${period.start} or ${period.end}. Please use the format YYYY-MM-DDTHH:MM.`);
-      exit(1);
-    }
+  // Validate date-time format
+  if (!validateDateTime(startDate) || !validateDateTime(endDate)) {
+    console.error(`Invalid date-time format: ${startDate} or ${endDate}. Please use the format YYYY-MM-DDTHH:MM.`);
+    exit(1);
   }
 
+  const freezePeriod = { start: startDate, end: endDate };
   const currentDateTime = moment().tz(timeZone).format('YYYY-MM-DDTHH:mm');
   console.log(`Current date and time in ${timeZone}: ${currentDateTime}`);
 
   let nextRunTime = null;
-  for (const period of freezePeriods) {
-    if (new Date(period.end).getTime() > new Date().getTime()) {
-      nextRunTime = period.end;
-      break;
-    }
+  if (new Date(freezePeriod.end).getTime() > new Date().getTime()) {
+    nextRunTime = freezePeriod.end;
   }
 
-  if (isWithinFreezePeriod(currentDateTime, freezePeriods)) {
+  if (isWithinFreezePeriod(currentDateTime, freezePeriod.start, freezePeriod.end)) {
     console.log(`Code freeze in effect! Current date and time ${currentDateTime} is within a freeze period.`);
 
     const targetBranches = targetBranchesInput.split(',');
