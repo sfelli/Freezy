@@ -1,14 +1,12 @@
-name: Manual Freeze Check
+name: Scheduled Freeze Check
 
 on:
   workflow_dispatch:
     inputs:
-      start_date:
-        description: 'Start date of the freeze period in the format YYYY-MM-DDTHH:MM (e.g., 2024-06-28T14:30)'
+      action_type:
+        description: 'Action type (freeze or unfreeze)'
         required: true
-      end_date:
-        description: 'End date of the freeze period in the format YYYY-MM-DDTHH:MM (e.g., 2024-06-28T14:33)'
-        required: true
+        default: 'freeze'
       target_branches:
         description: 'Comma-separated list of target branches to check for freezes (e.g., main,dev)'
         required: true
@@ -17,6 +15,8 @@ on:
         description: 'Time zone for the freeze periods (e.g., Europe/Paris, America/New_York)'
         required: false
         default: 'Europe/Paris'
+  schedule:
+    - cron: '0 0 * * *' # Runs daily at midnight
 
 permissions:
   pull-requests: write
@@ -37,10 +37,10 @@ jobs:
     - name: Install dependencies
       run: npm install
 
-    - name: Check for freeze period and fail PRs if within freeze period
+    - name: Check for freeze period and fail PRs if necessary
       run: |
-        echo "Checking for freeze period and failing PRs if necessary..."
-        node .github/scripts/check-freeze.js '${{ github.event.inputs.start_date }}' '${{ github.event.inputs.end_date }}' '${{ github.event.inputs.target_branches }}' '${{ github.event.inputs.time_zone }}'
+        echo "Checking action type and processing PRs accordingly..."
+        node .github/scripts/check-freeze.js "${{ github.event.inputs.action_type }}" "${{ github.event.inputs.target_branches }}" "${{ github.event.inputs.time_zone }}"
       env:
-        GITHUB_TOKEN: ${{ secrets.TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_REPOSITORY: ${{ github.repository }}
