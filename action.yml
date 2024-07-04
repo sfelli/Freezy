@@ -1,0 +1,24 @@
+name: "Freeze Check Action"
+description: "Check PRs and mark them based on freeze or unfreeze action"
+author: "Your Name"
+inputs:
+  action_type:
+    description: "Action type"
+    required: true
+    type: choice
+    options:
+      - freeze
+      - unfreeze
+  target_branches:
+    description: "Comma-separated list of target branches to check for freezes (e.g., main,dev)"
+    required: true
+  time_zone:
+    description: "Time zone for the freeze periods (e.g., Europe/Paris, America/New_York)"
+    required: false
+    default: "Europe/Paris"
+runs:
+  using: "node12"
+  main: "index.js"
+branding:
+  icon: "check-circle"
+  color: "blue"
