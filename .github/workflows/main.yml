@@ -4,9 +4,12 @@ on:
   workflow_dispatch:
     inputs:
       action_type:
-        description: 'Action type (freeze or unfreeze)'
+        description: 'Action type'
         required: true
-        default: 'freeze'
+        type: choice
+        options:
+          - freeze
+          - unfreeze
       target_branches:
         description: 'Comma-separated list of target branches to check for freezes (e.g., main,dev)'
         required: true
@@ -37,10 +40,20 @@ jobs:
     - name: Install dependencies
       run: npm install
 
-    - name: Check for freeze period and fail PRs if necessary
+    - name: Determine action type and process PRs
       run: |
-        echo "Checking action type and processing PRs accordingly..."
-        node .github/scripts/check-freeze.js "${{ github.event.inputs.action_type }}" "${{ github.event.inputs.target_branches }}" "${{ github.event.inputs.time_zone }}"
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          echo "Using inputs from manual dispatch..."
+          action_type="${{ github.event.inputs.action_type }}"
+          target_branches="${{ github.event.inputs.target_branches }}"
+          time_zone="${{ github.event.inputs.time_zone }}"
+        else
+          echo "Using default values for cron job..."
+          action_type="freeze"
+          target_branches="main,dev"
+          time_zone="Europe/Paris"
+        fi
+        node .github/scripts/check-freeze.js "$action_type" "$target_branches" "$time_zone"
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_REPOSITORY: ${{ github.repository }}
